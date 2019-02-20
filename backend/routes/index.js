@@ -97,7 +97,8 @@ async function init() {
     `CREATE TABLE IF NOT EXISTS keys (
 			user_id		INT NOT NULL,
       public_key		VARCHAR NOT NULL,
-			PRIMARY KEY(user_id)
+      type VARCHAR,
+			PRIMARY KEY(user_id, public_key, type)
 		)`
   );
 
@@ -572,12 +573,32 @@ const isAuthenticated2 = (req, res, next) => {
 };
 
 router.post('/key', isAuthenticated2, async(req, res, next) => {
-  console.log(req.session.user.id, req.body.pubkey);
+  console.log(req.session.user.id, req.body);
   if (res.locals.authenticated) {
     await client.query(`
-      INSERT INTO keys (user_id, public_key) 
-        VALUES ($1, $2)
-    `, [req.session.user.id, req.body.pubkey])
+      INSERT INTO keys (user_id, public_key, type) 
+        VALUES ($1, $2, $3)
+    `, [req.session.user.id, req.body.bip32_x, "bip32"])
+
+    await client.query(`
+      INSERT INTO keys (user_id, public_key, type) 
+        VALUES ($1, $2, $3)
+    `, [req.session.user.id, req.body.bip44_x, "bip44"])
+
+    await client.query(`
+      INSERT INTO keys (user_id, public_key, type) 
+        VALUES ($1, $2, $3)
+    `, [req.session.user.id, req.body.bip49_x, "bip49"])
+
+    await client.query(`
+      INSERT INTO keys (user_id, public_key, type) 
+        VALUES ($1, $2, $3)
+    `, [req.session.user.id, req.body.bip84_x, "bip84"])
+
+    await client.query(`
+      INSERT INTO keys (user_id, public_key, type) 
+        VALUES ($1, $2, $3)
+    `, [req.session.user.id, req.body.bip141_x, "bip141"])
   }
   res.json({status: "ok"})
 });
@@ -585,8 +606,8 @@ router.post('/key', isAuthenticated2, async(req, res, next) => {
 router.get('/key', isAuthenticated2, async(req, res, next) => {
   const key_res = await client.query(`
   SELECT * FROM keys
-      WHERE user_id=$1
-  `, [req.session.user.id])
+      WHERE user_id=$1 AND type=$2
+  `, [req.session.user.id, "bip49"])
   console.log(req.session.user.id, key_res)
   const key = key_res.rows[0];
   console.log(key)
@@ -743,31 +764,28 @@ router.get('/user/:username/tip', async(req, res, next) => {
   const user = user_res.rows[0];
 
   const ex_pub_key = await client.query(`
-    SELECT public_key from keys where user_id=$1
-  `, [user.id]);
-
-  console.log(ex_pub_key.rows[0].public_key)
-
-  function getAddress (node, network) {
-    const { address } = bitcoin.payments.p2sh({
-      redeem: bitcoin.payments.p2wpkh({ pubkey: node.publicKey, network: network }),
-      network: network
-    })
-    return address;
-  }
+    SELECT public_key from keys where user_id=$1 AND type=$2
+  `, [user.id, "bip49"]);
   
   var network;
-  var path;
   if (process.env.STAGE == "dev" || process.env.STAGE == "testnet") {
-    path = `m/49/1/0/0/0`
-    network = bitcoin.networks.testnet;
+    network = bitcoin.networks.mainnet;
   } else if (process.env.STAGE == "prod") {
-    path = `m/49/0/0/0/0`
     network = bitcoin.networks.mainnet
   }
-  const address = getAddress(bip32.fromBase58(ex_pub_key.rows[0].public_key).derivePath(path), network);
+
+  console.log(ex_pub_key.rows[0].public_key)
+  const bip49_node = bip32.fromBase58(ex_pub_key.rows[0].public_key);
   
-  res.json({address});
+  function p2sh_p2wpkh (node, network) {
+      const { address } = bitcoin.payments.p2sh({
+          redeem: bitcoin.payments.p2wpkh({ pubkey: node.publicKey, network: network }),
+          network: network
+      })
+      return address;
+  }
+  
+  res.json({address: p2sh_p2wpkh(bip49_node.derive(0).derive(0), network)});
 });
 
 

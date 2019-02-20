@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import async from "async";
 import bitcoin from "bitcoinjs-lib";
+import bs58check from "bs58check";
 import bip39 from "bip39";
 import bip32 from 'bip32';
 
@@ -50,7 +51,7 @@ function Verify(props) {
     }));
 
     setSeedWordErrors(ranNums.map(i => {
-      return false
+      return true
     }));
 
   }, [])
@@ -60,18 +61,65 @@ function Verify(props) {
     setShowErrors(true);
     const seed = bip39.mnemonicToSeed(props.seed)
     const node = bip32.fromSeed(seed)
-    const xpub = node.neutered().toBase58()
-    const response = await fetch(`${process.env.REACT_APP_HOST}/key`, {
-      credentials: "include",
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({pubkey: xpub})
-    });
-    const data = await response.json();
-    window.location.href="/"
+    const bip32_x = node.derivePath(`m/0`).neutered().toBase58() // Import this
+    const bip44_x = node.derivePath(`m/44'/0'/0'`).neutered().toBase58() // Import this
+    const bip49_x = node.derivePath(`m/49'/0'/0'`).neutered().toBase58() // Import this
+    const bip84_x = node.derivePath(`m/84'/0'/0'`).neutered().toBase58() // Import this
+    const bip141_x = node.derivePath(`m/0`).neutered().toBase58() // Import this
+    
+    // const bip32_node = bip32.fromBase58(bip32_x);
+    // console.log(p2pkh(bip32_node.derive(0), network))
+
+    // function p2pkh(node, network) {
+    //   return bitcoin.payments.p2pkh({ pubkey: node.publicKey, network }).address
+    // }
+
+    // const bip44_node = bip32.fromBase58(bip44_x);
+    // console.log(p2pkh(bip44_node.derive(0).derive(0), network));
+
+    // function p2pkh(node, network) {
+    //   return bitcoin.payments.p2pkh({ pubkey: node.publicKey, network }).address
+    // }
+
+    // const bip49_node = bip32.fromBase58(bip49_x);
+    // console.log(p2sh_p2wpkh(bip49_node.derive(0).derive(0), network))
+    
+    // function p2sh_p2wpkh (node, network) {
+    //     const { address } = bitcoin.payments.p2sh({
+    //         redeem: bitcoin.payments.p2wpkh({ pubkey: node.publicKey, network: network }),
+    //         network: network
+    //     })
+    //     return address;
+    // }
+
+    // const bip84_node = bip32.fromBase58(bip84_x)
+    // console.log(p2wpkh(bip84_node.derive(0).derive(0), network))
+
+    // function p2wpkh(node, network) {
+    //   return bitcoin.payments.p2wpkh({ pubkey: node.publicKey, network }).address
+    // }
+
+    // const bip141_node = bip32.fromBase58(bip141_x);
+    // console.log(p2sh_p2wpkh(bip141_node.derive(0), network))
+    // console.log(JSON.stringify({bip32_x, bip44_x, bip49_x, bip84_x, bip141_x}))
+    // console.log(seedWordErrors);
+
+    if (!seedWordErrors.includes(true)) {
+      const response = await fetch(`${process.env.REACT_APP_HOST}/key`, {
+        credentials: "include",
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({bip32_x, bip44_x, bip49_x, bip84_x, bip141_x})
+      });
+      const data = await response.json();
+      window.location.href="/"
+
+    }
+
+    
   }
 
 
